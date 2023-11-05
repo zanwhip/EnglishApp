@@ -2,8 +2,10 @@ import { StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import React from 'react'
 import { SafeAreaView } from 'react-native';
 import { Image } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 
 const WelcomeScreen = () => {
+    const navigation = useNavigation();
   return (
     <SafeAreaView style={styles.container}>
     <View style={styles.area}>
@@ -16,7 +18,9 @@ const WelcomeScreen = () => {
         style={{ width: 400,height: 400,  }}
       />
   </View>
-  <TouchableOpacity style={{ backgroundColor : '#189056', width : 300, height : 60, justifyContent : 'center', margin : '15%' , borderRadius : 20, paddingLeft : 90,  }}>
+  <TouchableOpacity 
+  onPress={() => navigation.navigate('Home')}
+  style={{ backgroundColor : '#189056', width : 300, height : 60, justifyContent : 'center', margin : '15%' , borderRadius : 20, paddingLeft : 90,  }}>
     <Text style={{ color : 'white', fontSize : 20, fontWeight : '800',  }}>Get Starting</Text>
   </TouchableOpacity>
     </SafeAreaView>
