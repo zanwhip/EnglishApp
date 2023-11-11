@@ -1,115 +1,135 @@
-import React, { useState } from 'react'
-import { Text, View, StyleSheet} from 'react-native'
-import { SafeAreaView } from 'react-native-safe-area-context'
-import { Image } from 'react-native';
-import Features from '../components/features';
-import { dummyMessages } from '../constants';
-import { GestureHandlerRootView, ScrollView } from 'react-native-gesture-handler';
-import { TouchableOpacity } from 'react-native';
-
-
+import React, { useEffect, useRef, useState } from 'react';
+import { View, Text, SafeAreaView, TouchableOpacity, Image, ScrollView } from 'react-native';
+import { Audio } from 'expo-av';
+import * as Speech from 'expo-speech';
+import { widthPercentageToDP as wp, heightPercentageToDP as hp } from 'react-native-responsive-screen';
+import Features from '../components/features'
 const HomeScreen = () => {
-    const [messages, setMassages] = useState(dummyMessages);
-    const [recording, setRecording] = useState(true);
-    return (
-      <View style={styles.container}>
-        <SafeAreaView style={{ flex: 1, margin: 5 }}>
-            <View style={styles.botIcon}>
-            <Image
-        source={require('../../assets/images/bot.png')} // Đường dẫn đến tệp ảnh trong dự án của bạn
-        style={{ width : 180, height : 180 }}
-      />
-            </View>
-        {
-            messages.length>0? (
-                <View style={{ flex : 1, margin : 10,  }}>
-                    <Text style={{ fontSize : 20, fontWeight : '700', color : 'gray' }}>Assistant</Text>
-                    <View
-                    style={{ height : 480, backgroundColor : '#CACACA', borderRadius : 30, margin : 10,padding: 20 }}
-                    >
-                      <GestureHandlerRootView bounces={true} style={{ flex: 1 }}>
-                      {messages.map((message, index) => {
-                  if (message.role == 'assistant') {
-                    if (message.content.includes('https')) {
-                      // result is an AI image
-                      return (
-                        <View key={index} style={{ flexDirection: 'row', justifyContent: 'flex-start', width: 220, }}>
-                          <View style={{ padding: 10, flex: 1, borderRadius: 20, backgroundColor: '#68D391', height: 220,  }}>
-                            <Image
-                              source={{ uri: message.content }}
-                              style={{ height: 200, width: 200, borderRadius: 20 }}
-                              resizeMode="contain"
-                            />
-                          </View>
-                        </View>
-                      );
-                    } else {
-                      // chat GPT response
-                      return (
-                        <View key={index} style={{ width:300, backgroundColor: '#68D391', padding: 10, borderRadius: 20, marginLeft: 5, marginVertical: 10 }}>
-                          <Text style={{ color: '#2D3748', fontSize: 15 }}>{message.content}</Text>
-                        </View>
-                      );
-                    }
-                  } else {
-                    // user input text
-                    return (
-                      <View key={index} style={{ flexDirection: 'row', justifyContent: 'flex-end' }}>
-                        <View style={{ width: 300, backgroundColor: 'white', padding: 10, borderRadius: 20, marginVertical: 10 }}>
-                          <Text style={{ fontSize: 15 }}>{message.content}</Text>
-                        </View>
-                      </View>
-                    );
-                  }
-                })}
+  const [recording, setRecording] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [messages, setMessages] = useState([]);
+  const scrollViewRef = useRef();
 
-                      </GestureHandlerRootView>
+  const startRecording = async () => {
+    setRecording(true);
+    try {
+      await Audio.requestPermissionsAsync();
+      const recordingObject = new Audio.Recording();
+      await recordingObject.prepareToRecordAsync(Audio.RECORDING_OPTIONS_PRESET_HIGH_QUALITY);
+      await recordingObject.startAsync();
+      setRecording(recordingObject);
+    } catch (error) {
+      console.error('Failed to start recording', error);
+    }
+  };
 
-                    </View>
-                </View>
-            ) : (
-                <Features/>
-            )
-
+  const stopRecording = async () => {
+    try {
+      await recording.stopAndUnloadAsync();
+      const uri = recording.getURI();
+      if (uri) {
+        const { status } = await Speech.requestPermissionsAsync();
+        if (status === 'granted') {
+          const { transcription } = await Speech.recognizeAsync({ uri });
+          console.log('Recognized speech:', transcription);
+          if (transcription && transcription.trim().length > 0) {
+            setLoading(true);
+            const newMessages = [...messages, { role: 'user', content: transcription.trim() }];
+            setMessages(newMessages);
+            updateScrollView();
+            // Gọi API hoặc thực hiện các hành động khác với bản ghi âm đã nhận diện ở đây
+          }
+        } else {
+          console.warn('Permission to access speech recognition denied.');
         }
-        {/* recording, clear and stop button */}
-        <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginTop: 10  }}>
-         
-            {
-                recording? (
-                    <TouchableOpacity>
-                    <Image 
-                    source={require('../../assets/images/voiceLoading.gif')}
-                    style={{ height : 90, width : 90, }}
-                    />
-                </TouchableOpacity>
-    
-                ) : (
-                    <TouchableOpacity>
-                    <Image 
-                    source={require('../../assets/images/recordingIcon.png')}
-                    style={{ height : 90, width : 90, }}
-                    />
-                </TouchableOpacity>
-    
-                )
-            }
+      }
+    } catch (error) {
+      console.error('Failed to stop recording', error);
+    } finally {
+      setRecording(null);
+      setLoading(false);
+    }
+  };
+
+  const updateScrollView = () => {
+    setTimeout(() => {
+      scrollViewRef?.current?.scrollToEnd({ animated: true });
+    }, 200);
+  };
+
+  return (
+    <View style={{ flex: 1, backgroundColor: 'white' }}>
+      <SafeAreaView style={{ flex: 1, margin: 5 }}>
+        <View style={{ flexDirection: 'row', justifyContent: 'center' }}>
+          <Image
+            source={require('../../assets/images/bot.png')}
+            style={{ height: hp(15), width: hp(15) }}
+          />
         </View>
-        </SafeAreaView>
-      </View>
-    )
-  
-}
+        {messages.length > 0 ? (
+          <View style={{ flex: 1, margin: 10 }}>
+            <Text style={{ fontSize: 20, fontWeight: '700', color: 'gray' }}>Assistant</Text>
+            <View style={{ height: hp(58), backgroundColor: '#CACACA', borderRadius: 30, margin: 10, padding: 20 }}>
+              <ScrollView
+                ref={scrollViewRef}
+                bounces={false}
+                style={{ flex: 1 }}
+                contentContainerStyle={{ paddingBottom: 10 }}
+                showsVerticalScrollIndicator={false}
+              >
+                {messages.map((message, index) => (
+                  <View key={index} style={{ flexDirection: message.role === 'assistant' ? 'row' : 'row-reverse' }}>
+                    <View
+                      style={{
+                        width: wp(70),
+                        backgroundColor: message.role === 'assistant' ? '#68D391' : 'white',
+                        padding: 10,
+                        borderRadius: 20,
+                        marginVertical: 10,
+                      }}
+                    >
+                      <Text style={{ color: message.role === 'assistant' ? 'white' : '#2D3748', fontSize: 15 }}>
+                        {message.content}
+                      </Text>
+                    </View>
+                  </View>
+                ))}
+              </ScrollView>
+            </View>
+          </View>
+        ) : (
+          <Features />
+        )}
+        <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginTop: 10 }}>
+          {loading ? (
+            <Image
+              source={require('../../assets/images/loading.gif')}
+              style={{ height: hp(10), width: hp(10) }}
+            />
+          ) : recording ? (
+            <TouchableOpacity onPress={stopRecording} style={{ marginHorizontal: 10 }}>
+              <Image
+                source={require('../../assets/images/voiceLoading.gif')}
+                style={{ height: hp(10), width: hp(10) }}
+              />
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity onPress={startRecording} style={{ marginHorizontal: 10 }}>
+              <Image
+                source={require('../../assets/images/recordingIcon.png')}
+                style={{ height: hp(10), width: hp(10) }}
+              />
+            </TouchableOpacity>
+          )}
+          {messages.length > 0 && (
+            <TouchableOpacity onPress={clear} style={{ backgroundColor: '#CBD5E0', borderRadius: 20, padding: 10 }}>
+              <Text style={{ color: 'white', fontWeight: 'bold' }}>CLEAR</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      </SafeAreaView>
+    </View>
+  );
+};
 
-export default HomeScreen
-const styles = StyleSheet.create({
-    container : {
-        flex : 1,
-        backgroundColor :'white'
-    },
-    botIcon : {
-        flexDirection :'row',
-        justifyContent : 'center'
-     }
- })
-
+export default HomeScreen;

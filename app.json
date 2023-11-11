@@ -25,6 +25,19 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
+    },
+    "permissions": {
+      "microphone": "ALLOW",
+      "audioRecording": "ALLOW",
+      "speech": "ALLOW"
+    },
+    "plugins": {
+      "expo-speech": {
+        "locales": ["en-US"]
+      },
+      "expo-av": {
+        "playbackSourcePriority": ["ambisonic", "hrtf"]
+      }
     }
   }
 }
